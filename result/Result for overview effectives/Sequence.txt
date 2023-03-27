@@ -116,7 +116,7 @@ Best results on gcc-- and llvm--
 ——————————————————————————————————————————————————————————————————————————————————————————
 GCC1:
 correlation
-CompTuner:
+CompTuner: 
 Best:
 
 covariance
