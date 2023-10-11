@@ -500,7 +500,7 @@ class compTuner:
                     V_for_worse = self.update_v(worse_seed_V, worse_seed_seq, len(worse_seed_seq),
                                                 len(worse_seed_seq[0]), worse_seed_pbest, self.gbest
                                                 , self.w, self.c1, 2 * self.c2, 10, -10)
-                    for i in range(len(worse_seed_seq))
+                    for i in range(len(worse_seed_seq)):
                         for j in range(len(worse_seed_seq[0])):
                             a = random.random()
                             if 1.0 / (1 + math.exp(-V_for_worse[i][j])) > a:
