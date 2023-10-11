@@ -39,11 +39,11 @@ class compTuner:
         self.iteration = iteration
         self.dim = dim
         self.V = []
-        self.pbest = []
-        self.gbest = []
-        self.p_fit = []
-        self.fit = 0
-        self.get_objective_score = get_objective_score
+        self.pbest = [] # best vector of each particle
+        self.gbest = [] # best performance of each particle
+        self.p_fit = [] # best vector of all particles
+        self.fit = 0 # best performance of all particles
+        self.get_objective_score = get_objective_score # function
         self.random = random
 
     def generate_random_conf(self, x):
@@ -137,9 +137,7 @@ class compTuner:
         s1_norm = np.linalg.norm(t1)
         s2_norm = np.linalg.norm(t2)
         cos = np.dot(t1, t2) / (s1_norm * s2_norm)
-        """
-        remove eight flags
-        """
+        
         return cos
 
     def getPrecision(self, model, seq):
@@ -407,10 +405,10 @@ class compTuner:
             self.pbest.append(0)
             self.p_fit.append(0)
         self.fit = 0
-        for i in range(len(inital_indep)):
-            self.pbest[i] = inital_indep[i]
+        self.pbest = list(inital_indep)
+        self.p_fit = list(inital_dep)
+        for i in range(len(inital_dep)):
             tmp = inital_dep[i]
-            self.p_fit[i] = tmp
             if tmp > self.fit:
                 self.fit = tmp
                 self.gbest = inital_indep[i]
@@ -439,7 +437,7 @@ class compTuner:
                 for i in range(len(merged_predicted_objectives)):
                     if merged_predicted_objectives[i][1] > self.p_fit[i]:
                         self.p_fit[i] = merged_predicted_objectives[i][1]
-                        self.pbest = merged_predicted_objectives[i][0]
+                        self.pbest[i] = merged_predicted_objectives[i][0]
                 sort_merged_predicted_objectives = sorted(merged_predicted_objectives, key=lambda x: x[1], reverse=True)
                 current_best = sort_merged_predicted_objectives[0][1]
                 current_best_seq = sort_merged_predicted_objectives[0][0]
@@ -476,12 +474,12 @@ class compTuner:
                         if self.getDistance(merged_predicted_objectives[i][0], current_best_seq) > avg_dis:
                             worse_seed_indep.append(i)
                             worse_seed_seq.append(merged_predicted_objectives[i][0])
-                            worse_seed_pbest.append(self.p_fit[i])
+                            worse_seed_pbest.append(self.pbest[i])
                             worse_seed_V.append(self.V[i])
                         else:
                             better_seed_indep.append(i)
                             better_seed_seq.append(merged_predicted_objectives[i][0])
-                            better_seed_pbest.append(self.p_fit[i])
+                            better_seed_pbest.append(self.pbest[i])
                             better_seed_V.append(self.V[i])
                     """
                     update better particles
@@ -502,7 +500,7 @@ class compTuner:
                     V_for_worse = self.update_v(worse_seed_V, worse_seed_seq, len(worse_seed_seq),
                                                 len(worse_seed_seq[0]), worse_seed_pbest, self.gbest
                                                 , self.w, self.c1, 2 * self.c2, 10, -10)
-                    for i in range(len(worse_seed_seq)):
+                    for i in range(len(worse_seed_seq))
                         for j in range(len(worse_seed_seq[0])):
                             a = random.random()
                             if 1.0 / (1 + math.exp(-V_for_worse[i][j])) > a:
@@ -510,9 +508,9 @@ class compTuner:
                             else:
                                 worse_seed_seq[i][j] = 0
                     for i in range(len(better_seed_seq)):
-                        inital_indep[better_seed_indep.append[i]] = better_seed_seq[i]
+                        inital_indep[better_seed_indep[i]] = better_seed_seq[i]
                     for i in range(len(worse_seed_seq)):
-                        inital_indep[worse_seed_indep.append[i]] = worse_seed_seq[i]
+                        inital_indep[worse_seed_indep[i]] = worse_seed_seq[i]
 
             print(self.pbest)
             best_result = self.get_objective_score(self.gbest, k_iter=(t + 1))
