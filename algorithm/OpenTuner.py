@@ -4,7 +4,7 @@ from opentuner import EnumParameter
 from opentuner import IntegerParameter
 from opentuner import MeasurementInterface
 from opentuner import Result
-from executor import Executor
+
 def execmd(cmd):
     print(cmd)
     from subprocess import Popen, PIPE
@@ -13,7 +13,18 @@ def execmd(cmd):
     reval = stdout.decode()
     return reval
 
-GCC_FLAGS = Executor.__flags__
+GCC_FLAGS = ['-falign-labels', '-fauto-inc-dec', '-fbranch-count-reg', '-fcaller-saves', '-fcode-hoisting', '-fcombine-stack-adjustments', '-fcompare-elim',
+             '-fcprop-registers', '-fcrossjumping', '-fcse-follow-jumps', '-fdefer-pop', '-fdevirtualize', '-fdevirtualize-speculatively', '-fearly-inlining', 
+             '-fexpensive-optimizations', '-fforward-propagate', '-ffunction-cse', '-fgcse', '-fguess-branch-probability', '-fhoist-adjacent-loads', '-fif-conversion', 
+             '-fif-conversion2', '-findirect-inlining', '-finline-atomics', '-finline-functions-called-once', '-finline-small-functions', '-fipa-bit-cp', '-fipa-cp', 
+             '-fipa-icf', '-fipa-icf-functions', '-fipa-icf-variables', '-fipa-profile', '-fipa-pure-const', '-fipa-ra', '-fipa-reference', '-fipa-sra', '-fipa-vrp', 
+             '-fira-share-save-slots', '-fisolate-erroneous-paths-dereference', '-fjump-tables', '-flra-remat', '-fmove-loop-invariants', '-fomit-frame-pointer', 
+             '-foptimize-sibling-calls', '-foptimize-strlen', '-fpartial-inlining', '-fpeephole2', '-fprefetch-loop-arrays', '-freg-struct-return', '-freorder-blocks', 
+             '-freorder-blocks-and-partition', '-freorder-functions', '-frerun-cse-after-loop', '-fsched-critical-path-heuristic', '-fsched-group-heuristic', '-fsched-last-insn-heuristic',
+             '-fsched-spec', '-fsched-stalled-insns-dep', '-fschedule-insns2', '-fshrink-wrap', '-fsigned-zeros', '-fsplit-wide-types', '-fssa-phiopt', '-fstore-merging', 
+             '-fstrict-aliasing', '-fthread-jumps', '-ftrapping-math', '-ftree-bit-ccp', '-ftree-builtin-call-dce', '-ftree-ccp', '-ftree-ch', '-ftree-coalesce-vars', 
+             '-ftree-copy-prop', '-ftree-dce', '-ftree-dominator-opts', '-ftree-dse', '-ftree-fre', '-ftree-loop-im', '-ftree-loop-optimize', '-ftree-pre', '-ftree-pta', 
+             '-ftree-scev-cprop', '-ftree-sink', '-ftree-slsr', '-ftree-sra', '-ftree-switch-conversion', '-ftree-tail-merge', '-ftree-ter', '-ftree-vrp', '-fvar-tracking', '-fweb']
 
 
 
@@ -38,9 +49,9 @@ class GccFlagsTuner(MeasurementInterface):
         """
         Compile a given configuration in parallel
         """
-        gcc_cmd = 'g++ -c -I apps/utilities apps/utilities/polybench.c apps/correlation/*.c'
+        gcc_cmd = 'gcc -c -I apps/utilities apps/utilities/polybench.c apps/correlation/*.c'
         _ = execmd(gcc_cmd)
-        gcc_cmd = 'g++ -o ./tmp{0}.bin -lm *.o'.format(id)
+        gcc_cmd = 'gcc -o ./tmp{0}.bin -lm *.o'.format(id)
         gcc_cmd += ' -O{0}'.format(cfg['opt_level'])
         for flag in GCC_FLAGS:
             if cfg[flag] == 'on':

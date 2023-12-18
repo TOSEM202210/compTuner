@@ -1,0 +1,88 @@
+Results for compiler autotuning. The order is speedup effect and time consumption(second)
+====================================================
+LLVM
+====================================================
+PolyBench:
+----------------------------------------------------
+correlation:
+CompTuner:	1.042(2,052)
+AutoPhase:  1.029(3,742)
+
+covariane:
+CompTuner:	1.025(2,439)
+AutoPhase:  1.037(3,801)
+
+symm:
+CompTuner:	1.041(2,182)
+AutoPhase:  1.068(3,862)
+
+2mm:
+CompTuner:	1.078(3,085)
+AutoPhase:  1.056(5,731)
+
+3mm:
+CompTuner:	1.066(2,994)
+AutoPhase:  1.042(8,195)
+
+cholesky:
+CompTuner:	1.013(5,963)
+AutoPhase:  1.059(10,974)
+
+lu:
+CompTuner:	1.023(5,728)
+AutoPhase:  1.016(12,892)
+
+nussinov:
+CompTuner:	1.116(3,625)
+AutoPhase:  1.147(8,613)
+
+heat-3d:
+CompTuner:	1.014(2,230)
+AutoPhase:  1.063(8,250)
+
+jacobi-2d:
+CompTuner:	1.036(2,874)
+AutoPhase:  1.026(4,462)
+
+----------------------------------------------------
+cBench:
+----------------------------------------------------
+automotive_bitcount:
+CompTuner:	1.030(3,327)
+AutoPhase:  1.092(8,166)
+
+automotive_susan_e:
+CompTuner:	1.069(4,126)
+AutoPhase:  1.084(5,982)
+
+automotive_susan_c:
+CompTuner:	1.204(3,294) 
+AutoPhase:  1.189(5,731)
+
+automotive_susan_s:
+CompTuner:	1.099(2,965)
+AutoPhase:  1.093(5,102)
+
+consumer_tiff2rgba:
+CompTuner:	1.019(5,524)
+AutoPhase:  1.074(12,265)
+
+consumer_jpeg_c:
+CompTuner:	1.093(4,170)
+AutoPhase:  1.086(9,458)
+
+office_rsynth:
+CompTuner:	1.025(2,749)
+AutoPhase:  1.103(8,249)
+
+security_sha:
+CompTuner:	1.020(3,998)
+AutoPhase:  1.094(7.963)
+
+bzip2e:
+CompTuner:	1.036(3,557)
+AutoPhase:  1.033(2,492)
+
+telecom_adpcm_c:
+CompTuner:	1.279(3,630)
+AutoPhase:  1.228(7,013)

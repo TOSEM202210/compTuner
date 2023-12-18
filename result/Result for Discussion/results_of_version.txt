@@ -1,0 +1,60 @@
+Results for compiler autotuning of different versions of compiler. 
+====================================================
+GCC
+====================================================
+correlation:
+CompTuner:	1.014(4,517)
+BOCA:		1.010(4,988)
+
+covariane:
+CompTuner:	1.028(5,262)
+BOCA:		1.020(5,535)
+
+symm:
+CompTuner:	1.008(3,884)
+BOCA:		1.014(5,105)
+
+automotive_bitcount:
+CompTuner:	1.122(5,753)
+BOCA:		1.126(5,964)
+
+automotive_susan_e:
+CompTuner:	1.095(4,031)
+BOCA:		1.174(3,372)
+
+automotive_susan_c:
+CompTuner:	1.169(3,983)
+BOCA:		1.143(3,647)
+
+
+====================================================
+LLVM
+====================================================
+correlation:
+CompTuner:	1.021(4,362)
+BOCA:		1.018(5,105)
+
+
+covariane:
+CompTuner:	1.024(3,729)
+BOCA:		1.038(4,413)
+
+
+symm:
+CompTuner:	1.032(3,380)
+BOCA:		1.018(3,758)
+
+
+automotive_bitcount:
+CompTuner:	1.025(4,171)
+BOCA:		1.031(3,582)
+
+
+automotive_susan_e:
+CompTuner:	1.041(5,514)
+BOCA:		1.026(5,413)
+
+
+automotive_susan_c:
+CompTuner:	1.096(4,793)
+BOCA:		1.114(4,623)

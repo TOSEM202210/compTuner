@@ -1,0 +1,38 @@
+Results for compiler autotuning of different flags. 
+====================================================
+correlation:
+GCC8.3.0:	1.077(3,107)
+GCC12-:		1.036(3,234)
+LLVM9-:		1.049(3,052)
+
+
+covariane:
+GCC8.3.0:	1.080(4,067)
+GCC12-:		1.054(4,971)
+LLVM9-:		1.086(3,549)
+
+
+symm:
+GCC8.3.0:	1.042(2,573)
+GCC12-:		1.011(3,914)
+LLVM9-:		1.057(2,914)
+
+
+automotive_bitcount:
+GCC8.3.0:	1.267(4,174)
+GCC12-:		1.175(4,584)
+LLVM9-:		1.072(3,972)
+
+
+automotive_susan_e:
+GCC8.3.0:	1.274(4,362)
+GCC12-:		1.131(3,470)
+LLVM9-:		1.094(5,628)
+
+
+automotive_susan_c:
+GCC8.3.0:	1.327(3,907)
+GCC12-:		1.192(3,285)
+LLVM9-:		1.182(3,014)
+
+

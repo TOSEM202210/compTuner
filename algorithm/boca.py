@@ -1,10 +1,97 @@
-# encoding: utf-8
-from .executor import LOG_FILE, write_log, COM_FILE, BOCA_FILE
-import random, time, copy
+all_flags = ['-falign-labels', '-fauto-inc-dec', '-fbranch-count-reg', '-fcaller-saves', '-fcode-hoisting', '-fcombine-stack-adjustments', '-fcompare-elim',
+             '-fcprop-registers', '-fcrossjumping', '-fcse-follow-jumps', '-fdefer-pop', '-fdevirtualize', '-fdevirtualize-speculatively', '-fearly-inlining', 
+             '-fexpensive-optimizations', '-fforward-propagate', '-ffunction-cse', '-fgcse', '-fguess-branch-probability', '-fhoist-adjacent-loads', '-fif-conversion', 
+             '-fif-conversion2', '-findirect-inlining', '-finline-atomics', '-finline-functions-called-once', '-finline-small-functions', '-fipa-bit-cp', '-fipa-cp', 
+             '-fipa-icf', '-fipa-icf-functions', '-fipa-icf-variables', '-fipa-profile', '-fipa-pure-const', '-fipa-ra', '-fipa-reference', '-fipa-sra', '-fipa-vrp', 
+             '-fira-share-save-slots', '-fisolate-erroneous-paths-dereference', '-fjump-tables', '-flra-remat', '-fmove-loop-invariants', '-fomit-frame-pointer', 
+             '-foptimize-sibling-calls', '-foptimize-strlen', '-fpartial-inlining', '-fpeephole2', '-fprefetch-loop-arrays', '-freg-struct-return', '-freorder-blocks', 
+             '-freorder-blocks-and-partition', '-freorder-functions', '-frerun-cse-after-loop', '-fsched-critical-path-heuristic', '-fsched-group-heuristic', '-fsched-last-insn-heuristic',
+             '-fsched-spec', '-fsched-stalled-insns-dep', '-fschedule-insns2', '-fshrink-wrap', '-fsigned-zeros', '-fsplit-wide-types', '-fssa-phiopt', '-fstore-merging', 
+             '-fstrict-aliasing', '-fthread-jumps', '-ftrapping-math', '-ftree-bit-ccp', '-ftree-builtin-call-dce', '-ftree-ccp', '-ftree-ch', '-ftree-coalesce-vars', 
+             '-ftree-copy-prop', '-ftree-dce', '-ftree-dominator-opts', '-ftree-dse', '-ftree-fre', '-ftree-loop-im', '-ftree-loop-optimize', '-ftree-pre', '-ftree-pta', 
+             '-ftree-scev-cprop', '-ftree-sink', '-ftree-slsr', '-ftree-sra', '-ftree-switch-conversion', '-ftree-tail-merge', '-ftree-ter', '-ftree-vrp', '-fvar-tracking', '-fweb']
+
+import os,sys,json
+import random, time, copy,subprocess
 import math
 from sklearn.ensemble import RandomForestRegressor
 import numpy as np
 from scipy.stats import norm
+
+LOG_DIR = 'log' + os.sep
+LOG_FILE = LOG_DIR + 'boca_recordc1.log'
+ACC_FILE = LOG_DIR + 'acc.log'
+time_end = 6000
+
+def write_log(ss, file):
+    log = open(file, 'a')
+    log.write(ss + '\n')
+    log.flush()
+    log.close()
+
+def execute_terminal_command(command):
+    """
+    Execute the compiler and run command
+    """
+    try:
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        if result.returncode == 0:
+            print("命令执行成功！")
+            if result.stdout:
+                print("命令输出：")
+                print(result.stdout)
+        else:
+            print("命令执行失败。")
+            if result.stderr:
+                print("错误输出：")
+                print(result.stderr)
+    except Exception as e:
+        print("执行命令时出现错误：", str(e))
+
+def get_objective_score(independent, k_iter):
+    """
+    Obtain the speedup
+    """
+    opt = ''
+    for i in range(len(independent)):
+        if independent[i]:
+            opt = opt + all_flags[i] + ' '
+        else:
+            negated_flag_name = all_flags[i].replace("-f", "-fno-", 1)
+            opt = opt + negated_flag_name + ' '
+    print(opt)
+    time_start = time.time()
+    command = "gcc -O2 " + opt + " -c /home/zmx/BOCA_v2.0/benchmarks/cbench/automotive_bitcount/*.c"
+    execute_terminal_command(command)
+    command2 = "gcc -o a.out -O2 " + opt + " -lm *.o"
+    execute_terminal_command(command2)
+    command3 = "./a.out 1125000"
+    execute_terminal_command(command3)
+    cmd4 = 'rm -rf *.o *.I *.s a.out'
+    execute_terminal_command(cmd4)
+
+    time_end = time.time()  
+    time_c = time_end - time_start   #time opt
+
+    time_o3 = time.time()
+    command = "gcc -O3 -c /home/zmx/BOCA_v2.0/benchmarks/cbench/automotive_bitcount/*.c"
+    execute_terminal_command(command)
+    command2 = "gcc -o a.out -O3 -lm *.o"
+    execute_terminal_command(command2)
+    command3 = "./a.out 1125000"
+    execute_terminal_command(command3)
+    cmd4 = 'rm -rf *.o *.I *.s a.out'
+    execute_terminal_command(cmd4)
+
+    time_o3_end = time.time()  
+    time_o3_c = time_o3_end - time_o3   #time o3
+    print(time_o3_c /time_c)
+
+    op_str = "iteration:{} speedup:{}".format(str(k_iter), str(time_o3_c /time_c))
+    write_log(op_str, LOG_FILE)
+    return (time_o3_c /time_c)
+
+
 
 class get_exchange(object):
     def __init__(self, incumbent):
@@ -21,11 +108,11 @@ class get_exchange(object):
             ans[f[0]] = f[1]
         return ans
 
+
 class BOCA:
     def __init__(self, s_dim, get_objective_score, seed ,no_decay,
                  fnum=8, decay=0.5, scale=10, offset=20,
-                 selection_strategy=['boca', 'local'][0],
-                 budget=60, initial_sample_size=2):
+                 selection_strategy=['boca', 'local'][0], initial_sample_size=2):
         self.s_dim = s_dim
         self.get_objective_score = get_objective_score
         self.seed = seed
@@ -39,59 +126,9 @@ class BOCA:
             self.offset = offset  # OFFSET
         self.rnum0 = 2**8  # base-number of less-impactful option-sequences, will decay
 
-        self.selection_strategy = selection_strategy
-        self.budget = budget  # n_iteration
+        self.selection_strategy = selection_strategy 
         self.initial_sample_size = initial_sample_size
 
-    def get_acc(self, model, steps):
-        wait_for_predict = []
-        pre_sp = []
-        file = open("test.txt")
-        while 1:
-            lis = []
-            line = file.readline().strip('\n')
-            for i in range(len(line)):
-                if i == 0:
-                    continue
-                elif i == len(line) - 1:
-                    break
-                else:
-                    if line[i] == ',' or line[i] == ' ':
-                        continue
-                    else:
-                        lis.append(int(line[i]))
-            if not line:
-                break
-            if line == '\n':
-                continue
-            wait_for_predict.append(lis)
-        file.close()
-        t = 1
-        estimators = model.estimators_
-        for e in estimators:
-            tmp = e.predict(np.array(wait_for_predict))
-            if t == 1:
-                for i in range(len(tmp)):
-                    pre_sp.append(tmp[i])
-                    t = t + 1
-            else:
-                for i in range(len(tmp)):
-                    pre_sp[i] = pre_sp[i] + tmp[i]
-                    t = t + 1
-            for i in range(len(pre_sp)):
-                pre_sp[i] = pre_sp[i] / (t - 1)
-        acc_predict = []
-        if steps != 1:
-            true_running = [self.get_objective_score(indep, k_iter=0) for indep in wait_for_predict]
-        else:
-            true_running = []
-        for i in range(len(pre_sp)):
-            acc_predict.append(abs(pre_sp[i] - true_running[i]) / true_running)
-        write_log(str(true_running), BOCA_FILE)
-        write_log(str(pre_sp), BOCA_FILE)
-        write_log(str(acc_predict), BOCA_FILE)
-        write_log(str(np.mean(acc_predict)), BOCA_FILE)
-        write_log('----------------', BOCA_FILE)
     def generate_random_conf(self, x):
         """
         Generation 0-1 mapping for disable-enable options
@@ -130,7 +167,7 @@ class BOCA:
 
         return f
 
-    def boca_search(self, model, eta, rnum, steps):
+    def boca_search(self, model, eta, rnum):
         """
         Get 2**fnum * rnum candidate optimization sequences,
         then compute Expected Improvement.
@@ -155,11 +192,8 @@ class BOCA:
                     inc.append((opt_selected[k][0], 0))
             neighborhood_iterators.append(get_exchange(inc))
         print('get impactful opt seq, using ' + str(time.time() - begin)+' s.')
-
-        # get rnum less-impactful sequences for each
         b2 = time.time()
         neighbors = []  # candidate seq
-        # print('rnum: ' + str(rnum))
         for i, inc in enumerate(neighborhood_iterators):
             for _ in range(1 + rnum):
                 flip_n = random.randint(0, self.s_dim)
@@ -167,6 +201,7 @@ class BOCA:
                 neighbor_iter = neighborhood_iterators[i].to_next(selected_opt_ids, self.s_dim)
                 neighbors.append(neighbor_iter)
         print('get '+str(len(neighbors))+' candidate seq, using '+str(time.time()-b2))
+
         preds = []
         estimators = model.estimators_
         b3 = time.time()
@@ -177,61 +212,14 @@ class BOCA:
 
         return [[i,a] for a, i in zip(acq_val_incumbent, neighbors)]
 
-    def local_search(self, model, eta, incumbents):
-        """
-        Get 100 mutated + 10000 randomly sampled candidate optimization sequences,
-        then compute Expected Improvement.
-
-        :param incumbents: previous sequences, sorted by EI
-        :return: 10100-size list of [EI, seq]
-        """
-        neighbors = []
-        estimators = model.estimators_
-
-        # TODO: get 100 candidate seq by flipping:
-        #  1. seq in train_indep
-        #  2. mutated seq in train_indep
-        for inc0 in incumbents:
-            num = 0
-            inc = inc0  # best searching point
-            while num < 100:
-                neighbors_for_i = []
-                for i in inc[0]:
-                    tmp = copy.deepcopy(inc[0])
-                    tmp[i] = 1 - tmp[i]  # filp
-                    neighbors_for_i.append(tmp)
-                pred_tmp = []
-                for e in estimators:
-                    pred_tmp.append(e.predict(np.array(neighbors_for_i)))
-                acq_val_incumbent = self.get_ei(pred_tmp, eta)
-                merged_neighbor_ei = zip(neighbors_for_i, acq_val_incumbent)
-                sort_merged_neighbor_ei = sorted(merged_neighbor_ei, key=lambda x: x[1], reverse=True )
-                max_n = sort_merged_neighbor_ei[0][0]
-                max_ei = sort_merged_neighbor_ei[0][1]
-                num += 1
-                if max_ei <= inc[1]:
-                    break
-                inc = (max_n, max_ei)
-            neighbors.append(inc[0])
-
-        # TODO: get candidate seq by randomly sample
-        for _ in range(10000):
-            x = random.randint(0, 2 ** self.s_dim)
-            x = self.generate_random_conf(x)
-            neighbors.append(x)
-
-        pred = []
-        for e in estimators:
-            pred.append(e.predict(np.array(neighbors)))
-        acq_val_incumbent = self.get_ei(pred, eta)
-
-        return [[i, a] for a, i in zip(acq_val_incumbent, neighbors)]
-
-    def get_training_sequence(self, training_indep, training_dep, eta, rnum, steps):
+    def get_training_sequence(self, training_indep, training_dep, eta, rnum):
         model = RandomForestRegressor(random_state=self.seed)
         model.fit(np.array(training_indep), np.array(training_dep))
+
+        # get candidate seqs and corresponding EI
         begin = time.time()
         if self.selection_strategy == 'local':
+            # print('local search')
             estimators = model.estimators_
             preds = []
             for e in estimators:
@@ -242,9 +230,7 @@ class BOCA:
             merged_predicted_objectives = self.local_search(model, eta, configs_previous_runs_sorted)
         else:
             # print('boca search')
-            merged_predicted_objectives = self.boca_search(model, eta, rnum, steps)
-            # if steps == 1 or steps % 20 == 0 or steps == 58:
-            #     self.get_acc(model,steps)
+            merged_predicted_objectives = self.boca_search(model, eta, rnum)
         merged_predicted_objectives = sorted(merged_predicted_objectives, key=lambda x: x[1], reverse=True)
         end = time.time()
         print('search time: ' + str(end-begin))
@@ -254,12 +240,10 @@ class BOCA:
         begin = time.time()
         for x in merged_predicted_objectives:
             if x[0] not in training_indep:
-                # true_speedup = self.get_objective_score(x[0])
-                # if (abs(true_speedup - x[1]) / true_speedup) < 0.0001 :
-
                 print('get unique seq, using ' + str(time.time() - begin)+' s.')
                 return x[0], x[1], len(merged_predicted_objectives)
-
+    
+   
     def run(self):
         """
         Run BOCA algorithm
@@ -281,7 +265,7 @@ class BOCA:
 
         training_dep = [self.get_objective_score(indep, k_iter=0) for indep in training_indep]
         write_log(str(training_dep), LOG_FILE)
-        steps = 0
+        steps = 2
         merge = zip(training_indep, training_dep)
         merge_sort = [[indep, dep] for indep, dep in merge]
         merge_sort = sorted(merge_sort, key=lambda m: abs(m[1]), reverse=True)
@@ -291,18 +275,18 @@ class BOCA:
             sigma = -self.scale ** 2 / (2 * math.log(self.decay))  # sigma = - scale^2 / 2*log(decay)
         else:
             sigma = None
-        while self.initial_sample_size + steps < self.budget:
+        
+        while ts[-1] < time_end:
             steps += 1
             if self.decay:
-                # C_i = C_0 * exp(-max(0,i-offset)^2 / (2*sigma^2))
                 rnum = int(self.rnum0) * math.exp(-max(0, len(training_indep) - self.offset) ** 2 / (2*sigma**2))  # decay
             else:
                 rnum = int(self.rnum0)
             rnum = int(rnum)
             # get best optimimzation sequence
-            best_solution, _, num = self.get_training_sequence(training_indep, training_dep, global_best_dep, rnum, steps)
+            best_solution, _, num = self.get_training_sequence(training_indep, training_dep, global_best_dep, rnum)
             ts.append(time.time()-begin)
-
+            
             # add to training set, record time spent, score for this sequence
             training_indep.append(best_solution)
             best_result = self.get_objective_score(best_solution, k_iter=(self.initial_sample_size+steps))
@@ -310,13 +294,33 @@ class BOCA:
             if abs(best_result) > abs(global_best_dep):
                 global_best_dep = best_result
                 global_best_indep = best_solution
-
-            ss = '{}: step {}, best {}, cur-best {}, independent-number {} , solution {}'.format(str(round(ts[-1])),
-                                                                                     str(steps),
-                                                                                     str(global_best_dep),
-                                                                                     str(best_result),
-                                                                                     str(num),
-                                                                                     str(best_solution))
+            
+            ss = '{}: best {}, cur-best {}, independent-number {} , solution {}'.format(str(round(ts[-1])),
+                                                                                    str(global_best_dep),
+                                                                                    str(best_result),
+                                                                                    str(num),
+                                                                                    str(best_solution))
+            print(ss)
             write_log(ss, LOG_FILE)
         write_log(str(global_best_indep)+'\n=======================\n', LOG_FILE)
+        print(str(global_best_indep))
         return training_dep, ts
+
+
+if __name__ == "__main__":
+
+    boca_params = {}
+    boca_params['s_dim'] = len(all_flags)
+    boca_params['get_objective_score'] = get_objective_score
+    boca_params['fnum'] = 8
+    boca_params['decay'] = 0.5
+    boca_params['no_decay'] = False
+    boca_params['scale'] = 10
+    boca_params['offset'] = 20
+    boca_params['selection_strategy'] = 'boca'
+    boca_params['initial_sample_size'] = 2
+    boca_params['seed'] = 456
+
+
+    boca = BOCA(**boca_params)
+    dep, ts = boca.run()

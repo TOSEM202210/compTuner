@@ -1,0 +1,76 @@
+gcc1:
+P1:
+-fno-ssa-phiopt -fsched-interblock -ftree-loop-distribution -ftree-loop-vectorize -fcse-follow-jumps -fthread-jumps -finline-small-functions -fipa-cp -ftree-dce -fno-tree-dse
+
+P2:
+-fno-ssa-phiopt -fsched-interblock -ftree-loop-distribution -ftree-loop-vectorize -fcse-follow-jumps -fno-thread-jumps -finline-small-functions -fno-ipa-cp -ftree-dce -ftree-dse
+
+P3:
+-fssa-phiopt -fno-sched-interblock -fno-tree-loop-distribution -fno-tree-loop-vectorize -fno-cse-follow-jumps -fthread-jumps -fno-inline-small-functions -fno-ipa-cp -fno-tree-dce -fno-tree-dse
+
+C1:
+-fssa-phiopt -fno-sched-interblock -ftree-loop-distribution -fno-tree-loop-vectorize -fcse-follow-jumps -fthread-jumps -finline-small-functions -fipa-cp -fno-tree-dce -fno-tree-dse
+
+C2:
+-fssa-phiopt -fsched-interblock -ftree-loop-distribution -fno-tree-loop-vectorize -fno-cse-follow-jumps -fno-thread-jumps -finline-small-functions -fipa-cp -ftree-dce -fno-tree-dse
+
+C3:
+-fno-ssa-phiopt -fno-sched-interblock -fno-tree-loop-distribution -fno-tree-loop-vectorize -fcse-follow-jumps -fno-thread-jumps -fno-inline-small-functions -fno-ipa-cp -ftree-dce -fno-tree-dse
+
+gcc2:
+P1:
+-fno-delayed-branch -fno-dse -fipa-reference -ftree-sink -fno-ipa-vrp -fipa-bit-cp -floop-unroll-and-jam -floop-interchange -fno-peel-loops -fgcse
+
+P2:
+-fdelayed-branch -fdse -fipa-reference -fno-tree-sink -fipa-vrp -fno-ipa-bit-cp -fno-loop-unroll-and-jam -floop-interchange -fpeel-loops -fno-gcse
+
+P3:
+-fdelayed-branch -fno-dse -fipa-reference -ftree-sink -fno-ipa-vrp -fno-ipa-bit-cp -fno-loop-unroll-and-jam -floop-interchange -fno-peel-loops -fgcse
+
+C1:
+-fdelayed-branch -fno-dse -fno-ipa-reference -fno-tree-sink -fipa-vrp -fno-ipa-bit-cp -floop-unroll-and-jam -fno-loop-interchange -fpeel-loops -fgcse
+
+C2:
+-fdelayed-branch -fdse -fno-ipa-reference -fno-tree-sink -fipa-vrp -fno-ipa-bit-cp -fno-loop-unroll-and-jam -floop-interchange -fno-peel-loops -fno-gcse
+
+C3:
+-fno-delayed-branch -fdse -fipa-reference -fno-tree-sink -fno-ipa-vrp -fno-ipa-bit-cp -fno-loop-unroll-and-jam -floop-interchange -fpeel-loops -fgcse
+
+
+llvm1:
+P1:
+-targetlibinfo -globalopt -deadargelim -ipsccp -instcombine -prune-eh
+
+P2:
+-targetlibinfo -basicaa -globalopt -ipsccp  -instcombine -prune-eh
+
+P3:
+-targetlibinfo -basicaa -deadargelim -ipsccp -inline
+
+C1:
+-targetlibinfo -globalopt -instcombine -prune-eh
+
+C2:
+-targetlibinfo -tbaa -deadargelim -ipsccp -prune-eh
+
+C3:
+-globalopt -instcombine -basiccg
+
+llvm2:
+P1:
+-argpromotion -jump-threading -correlated-propagation -instcombine
+
+P2:
+-functionattrs -tailcallelim -lazy-value-info -jump-threading -instcombine
+
+P3:
+-functionattrs -domtree -early-cse -jump-threading -correlated-propagation -simplifycfg
+
+C1:
+-functionattrs -argpromotion -tailcallelim -jump-threading -simplifycfg -instcombine
+
+C2:
+-early-cse -correlated-propagation -simplifycfg -instcombine
+
+C3:
+-domtree -tailcallelim -early-cse -lazy-value-info -correlated-propagation

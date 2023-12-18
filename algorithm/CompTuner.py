@@ -1,32 +1,107 @@
-import time, math
-import numpy as np
-import random
+
+import os,sys
+import random, time, copy,subprocess
+import math
 from sklearn.ensemble import RandomForestRegressor
+import numpy as np
 from scipy.stats import norm
-from .executor import LOG_FILE, write_log
+
+all_flags = ['-falign-labels', '-fauto-inc-dec', '-fbranch-count-reg', '-fcaller-saves', '-fcode-hoisting', '-fcombine-stack-adjustments', '-fcompare-elim',
+             '-fcprop-registers', '-fcrossjumping', '-fcse-follow-jumps', '-fdefer-pop', '-fdevirtualize', '-fdevirtualize-speculatively', '-fearly-inlining', 
+             '-fexpensive-optimizations', '-fforward-propagate', '-ffunction-cse', '-fgcse', '-fguess-branch-probability', '-fhoist-adjacent-loads', '-fif-conversion', 
+             '-fif-conversion2', '-findirect-inlining', '-finline-atomics', '-finline-functions-called-once', '-finline-small-functions', '-fipa-bit-cp', '-fipa-cp', 
+             '-fipa-icf', '-fipa-icf-functions', '-fipa-icf-variables', '-fipa-profile', '-fipa-pure-const', '-fipa-ra', '-fipa-reference', '-fipa-sra', '-fipa-vrp', 
+             '-fira-share-save-slots', '-fisolate-erroneous-paths-dereference', '-fjump-tables', '-flra-remat', '-fmove-loop-invariants', '-fomit-frame-pointer', 
+             '-foptimize-sibling-calls', '-foptimize-strlen', '-fpartial-inlining', '-fpeephole2', '-fprefetch-loop-arrays', '-freg-struct-return', '-freorder-blocks', 
+             '-freorder-blocks-and-partition', '-freorder-functions', '-frerun-cse-after-loop', '-fsched-critical-path-heuristic', '-fsched-group-heuristic', '-fsched-last-insn-heuristic',
+             '-fsched-spec', '-fsched-stalled-insns-dep', '-fschedule-insns2', '-fshrink-wrap', '-fsigned-zeros', '-fsplit-wide-types', '-fssa-phiopt', '-fstore-merging', 
+             '-fstrict-aliasing', '-fthread-jumps', '-ftrapping-math', '-ftree-bit-ccp', '-ftree-builtin-call-dce', '-ftree-ccp', '-ftree-ch', '-ftree-coalesce-vars', 
+             '-ftree-copy-prop', '-ftree-dce', '-ftree-dominator-opts', '-ftree-dse', '-ftree-fre', '-ftree-loop-im', '-ftree-loop-optimize', '-ftree-pre', '-ftree-pta', 
+             '-ftree-scev-cprop', '-ftree-sink', '-ftree-slsr', '-ftree-sra', '-ftree-switch-conversion', '-ftree-tail-merge', '-ftree-ter', '-ftree-vrp', '-fvar-tracking', '-fweb']
+
+
+LOG_DIR = 'log' + os.sep
+LOG_FILE = LOG_DIR + 'com_recordc1.log'
+ERROR_FILE = LOG_DIR + 'err.log'
+
+def write_log(ss, file):
+    log = open(file, 'a')
+    log.write(ss + '\n')
+    log.flush()
+    log.close()
+
+def execute_terminal_command(command):
+    """
+    Execute the compiler and run command
+    """
+    try:
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        if result.returncode == 0:
+            print("命令执行成功！")
+            if result.stdout:
+                print("命令输出：")
+                print(result.stdout)
+        else:
+            print("命令执行失败。")
+            if result.stderr:
+                print("错误输出：")
+                print(result.stderr)
+    except Exception as e:
+        print("执行命令时出现错误：", str(e))
+
+def get_objective_score(independent, k_iter):
+    """
+    Obtain the speedup
+    """
+    opt = ''
+    for i in range(len(independent)):
+        if independent[i]:
+            opt = opt + all_flags[i] + ' '
+        else:
+            negated_flag_name = all_flags[i].replace("-f", "-fno-", 1)
+            opt = opt + negated_flag_name + ' '
+    print(opt)
+    time_start = time.time()
+    command = "gcc -O2 " + opt + " -c /home/zmx/BOCA_v2.0/benchmarks/cbench/automotive_bitcount/*.c"
+    execute_terminal_command(command)
+    command2 = "gcc -o a.out -O2 " + opt + " -lm *.o"
+    execute_terminal_command(command2)
+    command3 = "./a.out 1125000"
+    execute_terminal_command(command3)
+    cmd4 = 'rm -rf *.o *.I *.s a.out'
+    execute_terminal_command(cmd4)
+
+    time_end = time.time()  
+    time_c = time_end - time_start   #time opt
+
+    time_o3 = time.time()
+    command = "gcc -O3 -c /home/zmx/BOCA_v2.0/benchmarks/cbench/automotive_bitcount/*.c"
+    execute_terminal_command(command)
+    command2 = "gcc -o a.out -O3 -lm *.o"
+    execute_terminal_command(command2)
+    command3 = "./a.out 1125000"
+    execute_terminal_command(command3)
+    cmd4 = 'rm -rf *.o *.I *.s a.out'
+    execute_terminal_command(cmd4)
+
+    time_o3_end = time.time()  
+    time_o3_c = time_o3_end - time_o3   #time o3
+    print(time_o3_c /time_c)
+
+    op_str = "iteration:{} speedup:{}".format(str(k_iter), str(time_o3_c /time_c))
+    write_log(op_str, LOG_FILE)
+    return (time_o3_c /time_c)
+
 
 opt_seq = [0, 1]
+ts_tem = []
 
-class get_exchange(object):
-    def __init__(self, incumbent):
-        self.incumbent = incumbent  # fix values of impactful opts
 
-    def to_next(self, opt_ids, l):
-        """
-        Flip selected less-impactful opt, then fix impactful optimization
-        """
-        ans = [0] * l
-        for f in opt_ids:
-            ans[f] = 1
-        for f in self.incumbent:
-            ans[f[0]] = f[1]
-        return ans
-
+    
 class compTuner:
-    def __init__(self, dim, iteration, c1, c2, w, get_objective_score, random):
+    def __init__(self, dim, c1, c2, w, get_objective_score, random):
         """
         :param dim: number of compiler flags
-        :param iteration: number of iteration
         :param c1: parameter of pso process
         :param c2: parameter of pso process
         :param w: parameter of pso process
@@ -36,7 +111,6 @@ class compTuner:
         self.c1 = c1
         self.c2 = c2
         self.w = w
-        self.iteration = iteration
         self.dim = dim
         self.V = []
         self.pbest = [] # best vector of each particle
@@ -82,7 +156,7 @@ class compTuner:
         else:
             f = calculate_f(eta, m, s)
         return f
-
+    
     def get_ei_predict(self, model, now_best, wait_for_train):
         """
         :param model:RandomForest Model
@@ -103,43 +177,18 @@ class compTuner:
         :param wait_for_train:Sequences Set
         :return: the speedup of Sequences Set
         """
-        preds_result = []
         estimators = model.estimators_
-        t = 1
-        for e in estimators:
-            tmp = e.predict(np.array(wait_for_train))
-            if t == 1:
-                for i in range(len(tmp)):
-                    preds_result.append(tmp)
-                t = t + 1
-            else:
-                for i in range(len(tmp)):
-                    preds_result[i] = preds_result[i] + tmp
-                t = t + 1
-            print(preds_result)
-        for i in range(len(preds_result)):
-            preds_result[i] = preds_result[i] / (t - 1)
+        sum_of_predictions = np.zeros(len(wait_for_train))
+        for tree in estimators:
+            predictions = tree.predict(wait_for_train)
+            sum_of_predictions += predictions
         a = []
-
+        average_prediction = sum_of_predictions / len(estimators)
         for i in range(len(wait_for_train)):
-            x = [wait_for_train[i], preds_result[0][i]]
+            x = [wait_for_train[i], average_prediction[i]]
             a.append(x)
         return a
-
-    def getDistance(self, seq1, seq2):
-        """
-        :param seq1:
-        :param seq2:
-        :return: Getting the diversity of two sequences
-        """
-        t1 = np.array(seq1)
-        t2 = np.array(seq2)
-        s1_norm = np.linalg.norm(t1)
-        s2_norm = np.linalg.norm(t2)
-        cos = np.dot(t1, t2) / (s1_norm * s2_norm)
-        
-        return cos
-
+    
     def getPrecision(self, model, seq):
         """
         :param model:
@@ -154,72 +203,44 @@ class compTuner:
             res.append(tmp)
         acc_predict = np.mean(res)
         return abs(true_running - acc_predict) / true_running, true_running
-
-    def build_RF_by_BOCA(self):
+    
+    def selectByDistribution(self, merged_predicted_objectives):
         """
-        Ablation study part 1
-        :return:
+        Assign probabilities for different flag combinations
         """
-        inital_indep = []
-        while len(inital_indep) < 2:
-            x = random.randint(0, 2 ** self.dim)
-            initial_training_instance = self.generate_random_conf(x)
-            if initial_training_instance not in inital_indep:
-                inital_indep.append(initial_training_instance)
-        inital_dep = [self.get_objective_score(indep, k_iter=0) for indep in inital_indep]
-        model = RandomForestRegressor(random_state=self.random)
-        model.fit(np.array(inital_indep), np.array(inital_dep))
-        while len(inital_indep) < 60:
-            neighbors = []
-            for i in range(80000):
-                x = random.randint(0, 2 ** self.dim)
-                x = self.generate_random_conf(x)
-                if x not in neighbors:
-                    neighbors.append(x)
-            pred = []
-            estimators = model.estimators_
-            global_best = max(inital_dep)
-            for e in estimators:
-                pred.append(e.predict(np.array(neighbors)))
-            acq_val_incumbent = self.get_ei(pred, global_best)
-            ei_for_current = [[i, a] for a, i in zip(acq_val_incumbent, neighbors)]
-            merged_predicted_objectives = sorted(ei_for_current, key=lambda x: x[1], reverse=True)
-            flag = False
-            for x in merged_predicted_objectives:
-                if flag:
-                    break
-                if x[0] not in inital_indep:
-                    inital_indep.append(x[0])
-                    inital_dep.append(self.get_objective_score(x[0], k_iter=0))
-                    flag = True
-
-        return model, inital_indep, inital_dep
-
+        # sequences = [seq for seq, per in merged_predicted_objectives]
+        diffs = [abs(perf - merged_predicted_objectives[0][1]) for seq, perf in merged_predicted_objectives]
+        diffs_sum = sum(diffs)
+        probabilities = [diff / diffs_sum for diff in diffs]
+        index = list(range(len(diffs)))
+        idx = np.random.choice(index, p=probabilities)
+        return idx
+    
     def build_RF_by_CompTuner(self):
         """
         :return: model, initial_indep, initial_dep
         """
         inital_indep = []
         # randomly sample initial training instances
+        time_begin = time.time()
         while len(inital_indep) < 2:
             x = random.randint(0, 2 ** self.dim)
             initial_training_instance = self.generate_random_conf(x)
             if initial_training_instance not in inital_indep:
                 inital_indep.append(initial_training_instance)
         inital_dep = [self.get_objective_score(indep, k_iter=0) for indep in inital_indep]
+        ts_tem.append(time.time() - time_begin)
+        ss = '{}: best_seq {}, best_per {}'.format(str(round(ts_tem[-1])), str(max(inital_dep)), str(inital_indep[inital_dep.index(max(inital_dep))]))
+        write_log(ss, LOG_FILE)
         all_acc = []
         model = RandomForestRegressor(random_state=self.random)
         model.fit(np.array(inital_indep), np.array(inital_dep))
-        rec_size = 0
-        while rec_size < 50:
-            model = RandomForestRegressor(random_state=self.random)
-            model.fit(np.array(inital_indep), np.array(inital_dep))
+        rec_size = 2
+        while rec_size <50:
             global_best = max(inital_dep)
             estimators = model.estimators_
-            if all_acc:
-                all_acc = sorted(all_acc)
             neighbors = []
-            for i in range(80000):
+            while len(neighbors) < 30000:
                 x = random.randint(0, 2 ** self.dim)
                 x = self.generate_random_conf(x)
                 if x not in neighbors:
@@ -230,6 +251,7 @@ class compTuner:
             acq_val_incumbent = self.get_ei(pred, global_best)
             ei_for_current = [[i, a] for a, i in zip(acq_val_incumbent, neighbors)]
             merged_predicted_objectives = sorted(ei_for_current, key=lambda x: x[1], reverse=True)
+
             acc = 0
             flag = False
             for x in merged_predicted_objectives:
@@ -242,82 +264,37 @@ class compTuner:
                     all_acc.append(acc)
                     flag = True
             rec_size += 1
-
             if acc > 0.05:
                 indx = self.selectByDistribution(merged_predicted_objectives)
-                while merged_predicted_objectives[int(indx)][0] in inital_indep:
+                while merged_predicted_objectives[indx][0] in inital_indep:
                     indx = self.selectByDistribution(merged_predicted_objectives)
-                inital_indep.append(merged_predicted_objectives[int(indx)][0])
+                inital_indep.append(merged_predicted_objectives[indx][0])
                 acc, label = self.getPrecision(model, merged_predicted_objectives[int(indx)][0])
                 inital_dep.append(label)
                 all_acc.append(acc)
                 rec_size += 1
-
+            ts_tem.append(time.time() - time_begin)
+            ss = '{}: best_seq {}, best_per {}'.format(str(round(ts_tem[-1])), str(max(inital_dep)), str(inital_indep[inital_dep.index(max(inital_dep))]))
+            write_log(ss, LOG_FILE)
+            model = RandomForestRegressor(random_state=self.random)
+            model.fit(np.array(inital_indep), np.array(inital_dep))
             if rec_size > 50 and np.mean(all_acc) < 0.04:
                 break
         return model, inital_indep, inital_dep
-
-    def selectByDistribution(self, merged_predicted_objectives):
+    
+    def getDistance(self, seq1, seq2):
         """
-        :param merged_predicted_objectives: sorts sequences by EI value
-        :return: selected sequence index
+        :param seq1:
+        :param seq2:
+        :return: Getting the diversity of two sequences
         """
-        fitness = np.zeros(len(merged_predicted_objectives),)
-        probabilityTotal = np.zeros(len(fitness))
-        rec = 0.0000125
-        proTmp = 0.0
-        for i in range(len(fitness)):
-            fitness[i] = random.uniform(0, (i+1) * rec)
-            proTmp += fitness[i]
-            probabilityTotal[i] = proTmp
-        randomNumber = np.random.rand()
-        result = 0
-        for i in range(1, len(fitness)):
-            if randomNumber < fitness[0]:
-                result = 0
-                break
-            elif probabilityTotal[i - 1] < randomNumber <= probabilityTotal[i]:
-                result = i
-        return result
-
-    def search_by_impactful(self, model, eta):
-        """
-        :param model: prediction model
-        :param eta: best perfomance of the train set
-        :return: new generated sequences
-        """
-        options = model.feature_importances_
-        opt_sort = [[i, x] for i, x in enumerate(options)]
-        opt_selected = sorted(opt_sort, key=lambda x: x[1], reverse=True)[:8]
-        opt_ids = [x[0] for x in opt_sort]
-        neighborhood_iterators = []
-
-        for i in range(2 ** 8):  # search all combinations of impactful optimization
-            comb = bin(i).replace('0b', '')
-            comb = '0' * (8 - len(comb)) + comb  # fnum-size 0-1 string
-            inc = []  # list of tuple: (opt_k's idx, enable/disable)
-            for k, s in enumerate(comb):
-                if s == '1':
-                    inc.append((opt_selected[k][0], 1))
-                else:
-                    inc.append((opt_selected[k][0], 0))
-            neighborhood_iterators.append(get_exchange(inc))
-
-        neighbors = []  # candidate seq
-        for i, inc in enumerate(neighborhood_iterators):
-            for _ in range(1 + 80000):
-                flip_n = random.randint(0, self.dim)
-                selected_opt_ids = random.sample(opt_ids, flip_n)
-                neighbor_iter = neighborhood_iterators[i].to_next(selected_opt_ids, self.dim)
-                neighbors.append(neighbor_iter)
-        preds = []
-        estimators = model.estimators_
-        for e in estimators:
-            preds.append(e.predict(np.array(neighbors)))
-        acq_val_incumbent = self.get_ei(preds, eta)
-
-        return [[i, a] for a, i in zip(acq_val_incumbent, neighbors)]
-
+        t1 = np.array(seq1)
+        t2 = np.array(seq2)
+        s1_norm = np.linalg.norm(t1)
+        s2_norm = np.linalg.norm(t2)
+        cos = np.dot(t1, t2) / (s1_norm * s2_norm)
+        return cos
+    
     def init_v(self, n, d, V_max, V_min):
         """
         :param n: number of particles
@@ -332,7 +309,7 @@ class compTuner:
                 vi.append(a)
             v.append(vi)
         return v
-
+    
     def update_v(self, v, x, m, n, pbest, g, w, c1, c2, vmax, vmin):
         """
         :param v: particle's velocity vector
@@ -358,52 +335,15 @@ class compTuner:
                 if v[i][j] > vmax:
                     v[i][j] = vmax
         return v
-
+    
     def run(self):
-        begin = time.time()
         """
         build model and get data set
         """
         ts = []
         model, inital_indep, inital_dep = self.build_RF_by_CompTuner()
-        time_set_up = 6000
-        ts.append(time.time() - begin)
-        # model, inital_indep, inital_dep = self.build_RF_by_BOCA() # BOCA build method
-        """
-        run in impactful method
-        """
-        # global_best = max(inital_dep)
-        # idx = inital_dep.index(global_best)
-        # global_best_indep = inital_indep[idx]
-        # for iter in range(250):
-        #     merged_predicted_objectives = self.search_by_impactful(model, global_best)
-        #     flag = False
-        #     for x in merged_predicted_objectives:
-        #         if flag:
-        #             break
-        #         if x[0] not in inital_indep:
-        #             inital_indep.append(x[0])
-        #             speed_up = self.get_objective_score(x[0],k_iter = 100088)
-        #             inital_dep.append(speed_up)
-        #             if speed_up > global_best:
-        #                 global_best = speed_up
-        #                 global_best_indep = inital_indep[idx]
-        #             flag = True
-        #     ts.append(time.time() - begin)
-        #     ss = '{}: step {}, best {}, best-seq {}'.format(str(round(ts[-1])), str(iter + 1),
-        #                                                                          str(global_best),
-        #                                                                          str(global_best_indep))
-        #     write_log(ss, LOG_FILE)
-        #     if (time.time() - begin) > time_set_up:
-        #         break
-
-        """
-        CompTuner
-        """
+        begin = time.time()
         self.V = self.init_v(len(inital_indep), len(inital_indep[0]), 10, -10)
-        for i in range(len(inital_indep)):
-            self.pbest.append(0)
-            self.p_fit.append(0)
         self.fit = 0
         self.pbest = list(inital_indep)
         self.p_fit = list(inital_dep)
@@ -412,17 +352,14 @@ class compTuner:
             if tmp > self.fit:
                 self.fit = tmp
                 self.gbest = inital_indep[i]
-        #
-        ts = []  # time spend
-        end = time.time()
-        ss = '{}: step {}, best {}, cur-best {}, cur-best-seq {}'.format(str(round(end - begin)), str(-1),
-                                                                         str(0), str(0), str(0))
+        end = time.time() + ts_tem[-1]
+        ts.append(end - begin)
+        ss = '{}: best {}, cur-best-seq {}'.format(str(round(end - begin)), str(self.fit), str(self.gbest))
         write_log(ss, LOG_FILE)
-        begin = time.time()
-        for t in range(self.iteration):
+        t = 0
+        while ts[-1] < 6000:
             if t == 0:
-                self.V = self.update_v(self.V, inital_indep, len(inital_indep), len(inital_indep[0]), self.pbest,
-                                       self.gbest, self.w, self.c1, self.c2, 10, -10)
+                self.V = self.update_v(self.V, inital_indep, len(inital_indep), len(inital_indep[0]), self.pbest, self.gbest, self.w, self.c1, self.c2, 10, -10)
                 for i in range(len(inital_indep)):
                     for j in range(len(inital_indep[0])):
                         a = random.random()
@@ -430,8 +367,7 @@ class compTuner:
                             inital_indep[i][j] = 1
                         else:
                             inital_indep[i][j] = 0
-                print(inital_indep)
-
+                t = t + 1
             else:
                 merged_predicted_objectives = self.runtime_predict(model, inital_indep)
                 for i in range(len(merged_predicted_objectives)):
@@ -439,11 +375,11 @@ class compTuner:
                         self.p_fit[i] = merged_predicted_objectives[i][1]
                         self.pbest[i] = merged_predicted_objectives[i][0]
                 sort_merged_predicted_objectives = sorted(merged_predicted_objectives, key=lambda x: x[1], reverse=True)
-                current_best = sort_merged_predicted_objectives[0][1]
                 current_best_seq = sort_merged_predicted_objectives[0][0]
-                if current_best > self.fit:
+                temp = self.get_objective_score(current_best_seq, 1000086)
+                if  temp > self.fit:
                     self.gbest = current_best_seq
-                    self.fit = current_best
+                    self.fit = temp
                     self.V = self.update_v(self.V, inital_indep, len(inital_indep), len(inital_indep[0]), self.pbest,
                                            self.gbest, self.w, self.c1, self.c2, 10, -10)
                     for i in range(len(inital_indep)):
@@ -454,12 +390,15 @@ class compTuner:
                             else:
                                 inital_indep[i][j] = 0
                 else:
+                    """
+                    Different update
+                    """
                     avg_dis = 0.0
                     for i in range(1, len(merged_predicted_objectives)):
                         avg_dis = avg_dis + self.getDistance(merged_predicted_objectives[i][0], current_best_seq)
-                    print(avg_dis)
+                    
                     avg_dis = avg_dis / (len(inital_indep) - 1)
-                    print(avg_dis)
+                    
                     better_seed_indep = []
                     worse_seed_indep = []
                     better_seed_seq = []
@@ -468,8 +407,7 @@ class compTuner:
                     worse_seed_pbest = []
                     better_seed_V = []
                     worse_seed_V = []
-                    #change eight flags
-              
+        
                     for i in range(0, len(merged_predicted_objectives)):
                         if self.getDistance(merged_predicted_objectives[i][0], current_best_seq) > avg_dis:
                             worse_seed_indep.append(i)
@@ -511,12 +449,24 @@ class compTuner:
                         inital_indep[better_seed_indep[i]] = better_seed_seq[i]
                     for i in range(len(worse_seed_seq)):
                         inital_indep[worse_seed_indep[i]] = worse_seed_seq[i]
+                t = t + 1
 
-            print(self.pbest)
-            best_result = self.get_objective_score(self.gbest, k_iter=(t + 1))
-            ts.append(time.time() - begin)
-            ss = '{}: step {}, cur-best {}, cur-best-seq {}'.format(str(round(ts[-1])), str(t + 1),
-                                                                             str(self.fit), str(self.gbest))
+            ts.append(time.time() - begin + ts_tem[-1])
+            ss = '{}: cur-best {}, cur-best-seq {}'.format(str(round(ts[-1])), str(self.fit), str(self.gbest))
             write_log(ss, LOG_FILE)
-            if (time.time() - begin) > time_set_up:
+            if (time.time() + ts_tem[-1] - begin) > 6000:
                 break
+
+
+if __name__ == "__main__":
+    com_params = {}
+    com_params['dim'] = len(all_flags)
+    com_params['get_objective_score'] = get_objective_score
+    com_params['c1'] = 2
+    com_params['c2'] = 2
+    com_params['w'] = 0.6
+    com_params['random'] = 456
+
+
+    com = compTuner(**com_params)
+    dep, ts = com.run()
