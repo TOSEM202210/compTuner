@@ -231,7 +231,7 @@ class ENV(gym.Env):
         if(self.verbose):
             self.print_info("program: {} --".format(self.pgm_name) + "passes: {}".format(self.passes))
             self.print_info("reward: {} -- done: {}".format(reward, done))
-            self.print_info("min_cycles: {} -- best_passes: {}".format(self.min_cycles, self.best_passes))
+            self.print_info("min_cycles: {} -- best_passes: {}".format(self.min_time, self.best_passes))
             self.print_info("act_hist: {}".format(self.act_hist))
 
         if get_obs:
@@ -245,10 +245,10 @@ class ENV(gym.Env):
         if self.log_results:
             if self.feature_type == "act_hist_sparse" and (len(self.passes) == self.max_episode_steps):
             #self.log_file.write("{}, {}, {}, {}, {}\n".format(self.prev_obs, action, reward, self.prev_cycles, self.min_cycles))
-                print("{}|{}|{}|{}|{}|{}|{}\n".format(self.prev_obs, action, reward, self.prev_cycles, self.min_cycles, self.passes, self.best_passes))
-                self.log_file.write("{}|{}|{}|{}|{}|{}|{}\n".format(self.prev_obs, action, reward, self.prev_cycles, self.min_cycles, self.passes, self.best_passes))
+                print("{}|{}|{}|{}|{}|{}|{}\n".format(self.prev_obs, action, reward, self.prev_time, self.min_time, self.passes, self.best_passes))
+                self.log_file.write("{}|{}|{}|{}|{}|{}|{}\n".format(self.prev_obs, action, reward, self.prev_time, self.min_time, self.passes, self.best_passes))
             else:
-                self.log_file.write("{}|{}|{}|{}|{}|{}|{}\n".format(self.prev_obs, action, reward, self.prev_cycles, self.min_cycles, self.passes, self.best_passes))
+                self.log_file.write("{}|{}|{}|{}|{}|{}|{}\n".format(self.prev_obs, action, reward, self.prev_time, self.min_time, self.passes, self.best_passes))
             self.log_file.flush()
 
         self.prev_obs = obs
