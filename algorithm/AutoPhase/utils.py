@@ -47,14 +47,19 @@ def passes2indice(passes):
     return indices
 
 def get_time(run_dir, opt_indice, path=".", sim=False):
+    """
+    obtain pass time
+    opt_indice is [1,2,3...]
+    """
     ga_seq = getPasses(opt_indice)
+    passes_str =" ".join(str(x) for x in ga_seq)
     begin = time.time()
     folder_path = "/home/zmx/"
     cod1 = '/home/zmx/llvm9.0.0/bin/clang-9 -O0 -emit-llvm -c +' + run_dir + '/*.c'
     execute_terminal_command(cod1)
     bc_files = get_bc_files(folder_path)
     for bc_file in bc_files:
-        cod2 = '/home/zmx/llvm9.0.0/bin/opt -S ' + ga_seq + ' ' + bc_file + ' -o ' + bc_file.split('.')[0]+'.opt.bc'
+        cod2 = '/home/zmx/llvm9.0.0/bin/opt -S ' + passes_str + ' ' + bc_file + ' -o ' + bc_file.split('.')[0]+'.opt.bc'
         execute_terminal_command(cod2)
     opt_bc_files = get_optbc_files(folder_path)
     for bc_file in opt_bc_files:  

@@ -4,6 +4,9 @@ from gym.spaces import Discrete, Box, Tuple
 from IPython import embed
 import utils
 def execute_terminal_command(command):
+    """
+    Execute the compiler and run command
+    """
     try:
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
         if result.returncode == 0:
@@ -20,36 +23,50 @@ def execute_terminal_command(command):
         print("执行命令时出现错误：", str(e))
 
 def get_bc_files(folder_path):
+    """
+    Obtain the .bc files
+    """
     bc_files = [file for file in os.listdir(folder_path) if file.endswith(".bc")]
     return bc_files
 
 def get_optbc_files(folder_path):
+    """
+    Obtain the .opt.bc files
+    """
     bc_files = [file for file in os.listdir(folder_path) if file.endswith(".opt.bc")]
     return bc_files
 
 class ENV(gym.Env):
+    """
+    environment
+    """
     def __init__(self, env_config):
         self.pass_len = 274 # pass_len (int): number of passes for the program 
-        self.feat_len = 56
+        # self.feat_len = 56
 
         self.shrink = env_config.get('shrink', False) 
         if self.shrink:
             self.eff_pass_indices = [1,7,11,12,14,15,23,24,26,28,30,31,32,33,38,43]
             self.pass_len = len(self.eff_pass_indices) 
-            self.eff_feat_indices = [5, 7, 8, 9, 11, 13, 15, 17, 18, 19, 20, 21, 22, 24, 26, 28, 30, 31, 32, 33, 34, 36, 37, 38, 40, 42, 46, 49, 52, 55] 
-            self.feat_len = len(self.eff_feat_indices) 
+            # self.eff_feat_indices = [5, 7, 8, 9, 11, 13, 15, 17, 18, 19, 20, 21, 22, 24, 26, 28, 30, 31, 32, 33, 34, 36, 37, 38, 40, 42, 46, 49, 52, 55] 
+            # self.feat_len = len(self.eff_feat_indices) 
+        
+        # control features' observations
         self.binary_obs = env_config.get('binary_obs', False)
         self.norm_obs = env_config.get('normalize', False) 
         self.orig_norm_obs = env_config.get('orig_and_normalize', False)
 
-        self.feature_type = env_config.get('feature_type', 'act_hist') # pmg or act_hist
+        # use act_hist as feature
+        self.feature_type = env_config.get('feature_type', 'act_hist') 
+        # init act_hist
         self.act_hist = [0] * self.pass_len
+        # ohter feature
         self.bandit = self.feature_type == 'bandit'
         self.action_pgm = self.feature_type == 'act_pgm'
-
-        
         self.action_meaning = [-1,0,1]
-        self.max_episode_steps=45
+        self.reset_actions = [int(self.pass_len // 2)] * self.pass_len
+
+        self.max_episode_steps=274
 
         if self.action_pgm:
              self.action_space=Tuple([Discrete(len(self.action_meaning))]*self.pass_len)
@@ -59,18 +76,18 @@ class ENV(gym.Env):
             self.action_space = Discrete(self.pass_len)
 
         
-
+        #init boundary
         if self.feature_type == 'act_hist' or self.feature_type == "act_hist_sparse":
             self.observation_space = Box(0.0,274,shape=(self.pass_len,),dtype = np.int32)
 
         else:
             raise
+
+        #result
         self.prev_time = 200 
         self.O0_time = 200
         self.prev_obs = None
         self.min_time = 200
-
-        
         self.verbose = env_config.get('verbose',False)
         self.log_obs_reward = env_config.get('log_obs_reward',False)
 
@@ -103,7 +120,8 @@ class ENV(gym.Env):
         for f in pgm_files:
           shutil.copy(f, self.run_dir)
         
-        self.pre_passes_str= "-prune-eh -functionattrs -ipsccp -globalopt -mem2reg -deadargelim -sroa -early-cse -loweratomic -instcombine -loop-simplify"
+        #passes reinitialize the training
+        self.pre_passes_str= "-prune-eh -functionattrs -ipsccp -globalopt -mem2reg -deadargelim -sroa -early-cse -lazy-block-freq -instcombine -loop-simplify"
         self.pre_passes = utils.passes2indice(self.pre_passes_str) 
 
         self.passes = []
@@ -123,11 +141,8 @@ class ENV(gym.Env):
 
     def get_O3_rewards(self, diff=True, sim=False):
         """
-        Args:
-        code: c code program for tuning
-        param: input param
         Returns:
-        -O3 time
+        - O3 time
         """
         begin = time.time()
         folder_path = "/home/zmx/"
@@ -151,6 +166,12 @@ class ENV(gym.Env):
         return -(time.time() - begin)
     
     def get_time(self, passes, sim=False):
+        """
+        Args:
+        passes selected
+        Returns:
+        - passes time
+        """
         if self.shrink:
             actual_passes = [self.eff_pass_indices[index] for index in passes]
         else:
@@ -159,7 +180,10 @@ class ENV(gym.Env):
         return res
         
     def get_opt_rewards(self, diff=True, sim=False):
-        
+        """
+        Returns:
+        - reward
+        """
         if self.shrink:
             actual_passes = [self.eff_pass_indices[index] for index in self.passes]
         else:
@@ -173,7 +197,7 @@ class ENV(gym.Env):
             rew = self.prev_time - res
             self.prev_time = res
         else:
-            rew = -time
+            rew = - res
         return rew, True
     
 
@@ -181,6 +205,18 @@ class ENV(gym.Env):
         sys.stdout.write('\x1b[1;34m' + message.strip() + '\x1b[0m' + end)
 
     def reset(self, init=None, get_obs=True, get_rew=False, ret=True, sim=False):
+        """
+        # reset() resets passes to []
+        # reset(init=[1,2,3]) resets passes to [1,2,3]
+        get_obs (bool, optional): get_obs is a Boolean that is set to True when we decide to get the list of observation features after we reset. 
+        It should be set to False otherwise. Defaults to True.
+        get_rew (bool, optional): get_rew is a Boolean that is set to True when we decide to get the reward after we reset. It should be set to False otherwise. 
+        Defaults to False.
+        ret (bool, optional): ret is a Boolean that is set to True when we decide to get the reward or the list of observation features after we reset. 
+        It should be set to False otherwise. Defaults to True.
+        sim (bool, optional): sim should be True if you want the arguments used to launch the process to be “make clean p v -s”, or sim should be False if you want 
+        the argument used to launch the process to be "make clean accelerationCycle -s". Defaults to False. Defaults to False.
+        """
         self.passes = []
         if self.feature_type == 'act_pgm':
             self.passes = self.reset_actions
@@ -191,10 +227,10 @@ class ENV(gym.Env):
         self.prev_time = self.get_time(self.passes)  
         self.O0_time = self.prev_time
         if(self.verbose):
-            self.print_info("program: {} -- ".format(self.pgm_name)+" reset cycles: {}".format(self.prev_cycles))
+            self.print_info("program: {} -- ".format(self.pgm_name)+" reset time: {}".format(self.prev_time))
         if ret:
             if get_rew:
-                reward, _ = self.get_rewards(sim=sim)
+                reward, _ = self.get_opt_rewards(sim=sim)
             obs = []
             if get_obs:
                 if self.feature_type == 'act_hist' or self.feature_type == "act_hist_sparse":
@@ -217,6 +253,12 @@ class ENV(gym.Env):
             return 0
 
     def step(self, action, get_obs=True):
+        """
+        action (list): action is a list of the passes that the RL decide to apply as the next move after having analyzed its input values (observation features list and reward from the cycle count).
+        get_obs (bool, optional): get_obs is a Boolean that is set to True when we decide to get the list of observation features during each step. It should be set to False otherwise. Defaults to True.
+        Returns:
+        Returns a tuple of observation features list, reward from time, the Boolean done from get_reward, and info (the dictionary initialized at the beginning of the function).
+        """
         info = {}
         if self.bandit:
             self.passes = action
@@ -231,7 +273,7 @@ class ENV(gym.Env):
         if(self.verbose):
             self.print_info("program: {} --".format(self.pgm_name) + "passes: {}".format(self.passes))
             self.print_info("reward: {} -- done: {}".format(reward, done))
-            self.print_info("min_cycles: {} -- best_passes: {}".format(self.min_time, self.best_passes))
+            self.print_info("min_time: {} -- best_passes: {}".format(self.min_time, self.best_passes))
             self.print_info("act_hist: {}".format(self.act_hist))
 
         if get_obs:
@@ -244,7 +286,6 @@ class ENV(gym.Env):
         obs = np.array(obs)
         if self.log_results:
             if self.feature_type == "act_hist_sparse" and (len(self.passes) == self.max_episode_steps):
-            #self.log_file.write("{}, {}, {}, {}, {}\n".format(self.prev_obs, action, reward, self.prev_cycles, self.min_cycles))
                 print("{}|{}|{}|{}|{}|{}|{}\n".format(self.prev_obs, action, reward, self.prev_time, self.min_time, self.passes, self.best_passes))
                 self.log_file.write("{}|{}|{}|{}|{}|{}|{}\n".format(self.prev_obs, action, reward, self.prev_time, self.min_time, self.passes, self.best_passes))
             else:
@@ -257,5 +298,5 @@ class ENV(gym.Env):
 
     def render(self):
         print("pass: {}".format(self.passes))
-        print("prev_cycles: {}".format(self.prev_time))
+        print("prev_time: {}".format(self.prev_time))
 
