@@ -469,4 +469,4 @@ if __name__ == "__main__":
 
 
     com = compTuner(**com_params)
-    dep, ts = com.run()
+    com.run()
